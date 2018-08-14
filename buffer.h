@@ -28,24 +28,23 @@
 #define min(a,b) ((a < b) ? a :b)
 #endif 
 
-
 typedef struct GSM0710_Frame {
-  unsigned char channel;
-  unsigned char control;
-  int data_length;
-  unsigned char *data;
+	unsigned char channel;
+	unsigned char control;
+	int data_length;
+	unsigned char *data;
 } GSM0710_Frame;
 
 #define GSM0710_BUFFER_SIZE 2048
 
 typedef struct GSM0710_Buffer {
-  unsigned char data[GSM0710_BUFFER_SIZE];
-  unsigned char *readp;
-  unsigned char *writep;
-  unsigned char *endp;
-  int flag_found; // set if last character read was flag
-  unsigned long received_count;
-  unsigned long dropped_count;
+	unsigned char data[GSM0710_BUFFER_SIZE];
+	unsigned char *readp;
+	unsigned char *writep;
+	unsigned char *endp;
+	int flag_found; // set if last character read was flag
+	unsigned long received_count;
+	unsigned long dropped_count;
 } GSM0710_Buffer;
 
 // increases buffer pointer by one and wraps around if necessary
@@ -97,8 +96,8 @@ int gsm0710_buffer_read(GSM0710_Buffer *buf, char *output, int count);
  * RETURNS
  * number of characters written
  */
-int gsm0710_buffer_write2ch(GSM0710_Buffer *buf, int channel, 
-			    const char *input, int count);
+int gsm0710_buffer_write2ch(GSM0710_Buffer *buf, int channel, const char *input,
+		int count);
 
 /* Writes data to the buffer
  *
@@ -135,10 +134,4 @@ void destroy_frame(GSM0710_Frame *frame);
 unsigned char make_fcs(const unsigned char *input, int count);
 
 #endif /* _GSM0710_BUFFER_H_ */
-
-
-
-
-
-
 

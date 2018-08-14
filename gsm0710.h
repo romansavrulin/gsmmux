@@ -66,8 +66,8 @@
 // Channel status tells if the DLC is open and what were the last
 // v.24 signals sent
 typedef struct Channel_Status {
-  int opened;
-  unsigned char v24_signals;
+	int opened;
+	unsigned char v24_signals;
 } Channel_Status;
 
 // for debugging 
@@ -77,8 +77,4 @@ typedef struct Channel_Status {
 			     ((n&1) == 1));
 
 #endif /* _GSM0710_H_ */
-
-
-
-
 
