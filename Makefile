@@ -2,8 +2,8 @@
 DEBUG = y
 
 TARGET = gsmMuxd
-SRC = main.c buffer.c
-OBJS = main.o buffer.o
+SRC = main.c gsm0710.c buffer.c
+OBJS = main.o gsm0710.o buffer.o
 
 CC = gcc
 LD = gcc

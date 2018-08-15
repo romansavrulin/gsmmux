@@ -106,18 +106,18 @@
 #define POLLING_INTERVAL 5
 #define MAX_PINGS 4
 
-static volatile int terminate = 0;
-static int terminateCount = 0;
+volatile int terminate = 0;
+int terminateCount = 0;
 static char* devSymlinkPrefix = 0;
 static int *ussp_fd;
-static int serial_fd;
-static Channel_Status *cstatus;
-static int max_frame_size = 31; // The limit of Sony-Ericsson GM47
+int serial_fd;
+Channel_Status *cstatus;
+int max_frame_size = 31; // The limit of Sony-Ericsson GM47
 static int wait_for_daemon_status = 0;
 
-static GSM0710_Buffer *in_buf;  // input buffer
 
-static int _debug = 0;
+static GSM0710_Buffer *in_buf;  // input buffer
+int _debug = 0;
 static pid_t the_pid;
 int _priority;
 int _modem_type;
@@ -128,10 +128,10 @@ static int numOfPorts;
 static int maxfd;
 static int baudrate = 0;
 static int *remaining;
-static int faultTolerant = 0;
-static int restart = 0;
+int faultTolerant = 0;
+int restart = 0;
 
-/* The following arrays must have equal length and the values must 
+/* The following arrays must have equal length and the values must
  * correspond.
  */
 static int baudrates[] =
@@ -139,76 +139,6 @@ static int baudrates[] =
 
 static speed_t baud_bits[] = { 0, B9600, B19200, B38400, B57600, B115200,
 		B230400, B460800 };
-
-/** Writes a frame to a logical channel. C/R bit is set to 1.
- * Doesn't support FCS counting for UI frames.
- *
- * PARAMS:
- * channel - channel number (0 = control)
-
- * input   - the data to be written
- * count   - the length of the data
- * type    - the type of the frame (with possible P/F-bit)
- *
- * RETURNS:
- * number of characters written
- */
-int write_frame(int channel, const char *input, int count, unsigned char type) {
-	// flag, EA=1 C channel, frame type, length 1-2
-	unsigned char prefix[5] = { F_FLAG, EA | CR, 0, 0, 0 };
-	unsigned char postfix[2] = { 0xFF, F_FLAG };
-	int prefix_length = 4, c;
-
-	if (_debug)
-		syslog(LOG_DEBUG, "send frame to ch: %d \n", channel);
-	// EA=1, Command, let's add address
-	prefix[1] = prefix[1] | ((63 & (unsigned char) channel) << 2);
-	// let's set control field
-	prefix[2] = type;
-
-	// let's not use too big frames
-	count = min(max_frame_size, count);
-
-	// length
-	if (count > 127) {
-		prefix_length = 5;
-		prefix[3] = ((127 & count) << 1);
-		prefix[4] = (32640 & count) >> 7;
-	} else {
-		prefix[3] = 1 | (count << 1);
-	}
-	// CRC checksum
-	postfix[0] = make_fcs(prefix + 1, prefix_length - 1);
-
-	c = write(serial_fd, prefix, prefix_length);
-	if (c != prefix_length) {
-		if (_debug)
-			syslog(LOG_DEBUG,
-					"Couldn't write the whole prefix to the serial port for the virtual port %d. Wrote only %d  bytes.",
-					channel, c);
-		return 0;
-	}
-	if (count > 0) {
-		c = write(serial_fd, input, count);
-		if (count != c) {
-			if (_debug)
-				syslog(LOG_DEBUG,
-						"Couldn't write all data to the serial port from the virtual port %d. Wrote only %d bytes.\n",
-						channel, c);
-			return 0;
-		}
-	}
-	c = write(serial_fd, postfix, 2);
-	if (c != 2) {
-		if (_debug)
-			syslog(LOG_DEBUG,
-					"Couldn't write the whole postfix to the serial port for the virtual port %d. Wrote only %d bytes.",
-					channel, c);
-		return 0;
-	}
-
-	return count;
-}
 
 /* Handles received data from ussp device.
  *
@@ -403,9 +333,9 @@ int indexOfBaud(int baudrate) {
 	return 0;
 }
 
-/** 
+/**
  * Set serial port options. Then switch baudrate to zero for a while
- * and then back up. This is needed to get some modems 
+ * and then back up. This is needed to get some modems
  * (such as Siemens MC35i) to wake up.
  */
 void setAdvancedOptions(int fd, speed_t baud) {
@@ -481,7 +411,7 @@ int open_serialport(char *dev) {
 		if (_debug)
 			syslog(LOG_DEBUG, "serial opened\n");
 		if (index > 0) {
-			// Switch the baud rate to zero and back up to wake up 
+			// Switch the baud rate to zero and back up to wake up
 			// the modem
 			setAdvancedOptions(fd, baud_bits[index]);
 		} else {
@@ -526,192 +456,6 @@ int open_serialport(char *dev) {
 	return fd;
 }
 
-// Prints information on a frame
-void print_frame(GSM0710_Frame * frame) {
-	if (_debug) {
-		syslog(LOG_DEBUG, "is in %s\n", __FUNCTION__);
-		syslog(LOG_DEBUG, "Received ");
-	}
-
-	switch ((frame->control & ~PF)) {
-	case SABM:
-		if (_debug)
-			syslog(LOG_DEBUG, "SABM ");
-		break;
-	case UIH:
-		if (_debug)
-			syslog(LOG_DEBUG, "UIH ");
-		break;
-	case UA:
-		if (_debug)
-			syslog(LOG_DEBUG, "UA ");
-		break;
-	case DM:
-		if (_debug)
-			syslog(LOG_DEBUG, "DM ");
-		break;
-	case DISC:
-		if (_debug)
-			syslog(LOG_DEBUG, "DISC ");
-		break;
-	case UI:
-		if (_debug)
-			syslog(LOG_DEBUG, "UI ");
-		break;
-	default:
-		if (_debug)
-			syslog(LOG_DEBUG, "unkown (control=%d) ", frame->control);
-		break;
-	}
-	if (_debug)
-		syslog(LOG_DEBUG, " frame for channel %d.\n", frame->channel);
-
-	if (frame->data_length > 0) {
-		if (_debug) {
-			syslog(LOG_DEBUG, "frame->data = %s / size = %d\n", frame->data,
-					frame->data_length);
-			//fwrite(frame->data, sizeof(char), frame->data_length, stdout);
-			syslog(LOG_DEBUG, "\n");
-		}
-	}
-
-}
-
-/* Handles commands received from the control channel.
- */
-void handle_command(GSM0710_Frame * frame) {
-#if 1
-	unsigned char type, signals;
-	int length = 0, i, type_length, channel, supported = 1;
-	unsigned char *response;
-	// struct ussp_operation op;
-
-	if (_debug)
-		syslog(LOG_DEBUG, "is in %s\n", __FUNCTION__);
-
-	if (frame->data_length > 0) {
-		type = frame->data[0];  // only a byte long types are handled now
-		// skip extra bytes
-		for (i = 0; (frame->data_length > i && (frame->data[i] & EA) == 0); i++)
-			;
-		i++;
-		type_length = i;
-		if ((type & CR) == CR) {
-			// command not ack
-
-			// extract frame length
-			while (frame->data_length > i) {
-				length = (length * 128) + ((frame->data[i] & 254) >> 1);
-				if ((frame->data[i] & 1) == 1)
-					break;
-				i++;
-			}
-			i++;
-
-			switch ((type & ~CR)) {
-			case C_CLD:
-				syslog(LOG_INFO,
-						"The mobile station requested mux-mode termination.\n");
-				if (faultTolerant) {
-					// Signal restart
-					restart = 1;
-				} else {
-					terminate = 1;
-					terminateCount = -1;    // don't need to close down channels
-				}
-				break;
-			case C_TEST:
-
-				if(_debug){
-					syslog(LOG_DEBUG,"Test command: ");
-					syslog(LOG_DEBUG,"frame->data = %s  / frame->data_length = %d\n",frame->data + i, frame->data_length - i);
-					//fwrite(frame->data + i, sizeof(char), frame->data_length - i, stdout);
-				}
-
-				break;
-			case C_MSC:
-				if (i + 1 < frame->data_length) {
-					channel = ((frame->data[i] & 252) >> 2);
-					i++;
-					signals = (frame->data[i]);
-					// op.op = USSP_MSC;
-					// op.arg = USSP_RTS;
-					// op.len = 0;
-
-					if (_debug)
-						syslog(LOG_DEBUG,
-								"Modem status command on channel %d.\n",
-								channel);
-					if ((signals & S_FC) == S_FC) {
-						if (_debug)
-							syslog(LOG_DEBUG, "No frames allowed.\n");
-					} else {
-						// op.arg |= USSP_CTS;
-						if (_debug)
-							syslog(LOG_DEBUG, "Frames allowed.\n");
-					}
-					if ((signals & S_RTC) == S_RTC) {
-						// op.arg |= USSP_DSR;
-						if (_debug)
-							syslog(LOG_DEBUG, "RTC\n");
-					}
-					if ((signals & S_IC) == S_IC) {
-						// op.arg |= USSP_RI;
-						if (_debug)
-							syslog(LOG_DEBUG, "Ring\n");
-					}
-					if ((signals & S_DV) == S_DV) {
-						// op.arg |= USSP_DCD;
-						if (_debug)
-							syslog(LOG_DEBUG, "DV\n");
-					}
-					// if (channel > 0)
-					//     write(ussp_fd[(channel - 1)], &op, sizeof(op));
-				} else {
-					syslog(LOG_ERR,
-							"ERROR: Modem status command, but no info. i: %d, len: %d, data-len: %d\n",
-							i, length, frame->data_length);
-				}
-				break;
-			default:
-				syslog(LOG_ALERT,
-						"Unknown command (%d) from the control channel.\n",
-						type);
-				response = malloc(sizeof(char) * (2 + type_length));
-				response[0] = C_NSC;
-				// supposes that type length is less than 128
-				response[1] = EA & ((127 & type_length) << 1);
-				i = 2;
-				while (type_length--) {
-					response[i] = frame->data[(i - 2)];
-					i++;
-				}
-				write_frame(0, response, i, UIH);
-				free(response);
-				supported = 0;
-				break;
-			}
-
-			if (supported) {
-				// acknowledge the command
-				frame->data[0] = frame->data[0] & ~CR;
-				write_frame(0, frame->data, frame->data_length, UIH);
-			}
-		} else {
-			// received ack for a command
-			if (COMMAND_IS(C_NSC, type)) {
-				syslog(LOG_ALERT,
-						"The mobile station didn't support the command sent.\n");
-			} else {
-				if (_debug)
-					syslog(LOG_DEBUG,
-							"Command acknowledged by the mobile station.\n");
-			}
-		}
-	}
-#endif
-}
-
 // shows how to use this program
 void usage(char *_name) {
 	fprintf(stderr, "\nUsage: %s [options] <pty1> <pty2> ...\n", _name);
@@ -734,135 +478,6 @@ void usage(char *_name) {
 	fprintf(stderr,
 			"  -r                  : Restart automatically if the modem stops responding\n");
 	fprintf(stderr, "  -h                  : Show this help message\n");
-}
-
-/* Extracts and handles frames from the receiver buffer.
- *
- * PARAMS:
- * buf - the receiver buffer
- */
-int extract_frames(GSM0710_Buffer * buf) {
-	// version test for Siemens terminals to enable version 2 functions
-	static char version_test[] = "\x23\x21\x04TEMUXVERSION2\0\0";
-	int framesExtracted = 0;
-
-	GSM0710_Frame *frame;
-
-	if (_debug)
-		syslog(LOG_DEBUG, "is in %s\n", __FUNCTION__);
-	while ((frame = gsm0710_buffer_get_frame(buf))) {
-		++framesExtracted;
-		if ((FRAME_IS(UI, frame) || FRAME_IS(UIH, frame))) {
-			if (_debug)
-				syslog(LOG_DEBUG,
-						"is (FRAME_IS(UI, frame) || FRAME_IS(UIH, frame))\n");
-			if (frame->channel > 0) {
-				if (_debug)
-					syslog(LOG_DEBUG, "frame->channel > 0\n");
-				// data from logical channel
-				ussp_send_data(frame->data, frame->data_length,
-						frame->channel - 1);
-			} else {
-				// control channel command
-				if (_debug)
-					syslog(LOG_DEBUG, "control channel command\n");
-				handle_command(frame);
-			}
-		} else {
-			// not an information frame
-			if (_debug){
-				syslog(LOG_DEBUG, "not an information frame\n");
-				print_frame(frame);
-			}
-			switch ((frame->control & ~PF)) {
-			case UA:
-				if (_debug)
-					syslog(LOG_DEBUG, "is FRAME_IS(UA, frame)\n");
-				if (cstatus[frame->channel].opened == 1) {
-					syslog(LOG_INFO, "Logical channel %d closed.\n",
-							frame->channel);
-					cstatus[frame->channel].opened = 0;
-				} else {
-					cstatus[frame->channel].opened = 1;
-					if (frame->channel == 0) {
-						syslog(LOG_INFO, "Control channel opened.\n");
-						// send version Siemens version test
-						write_frame(0, version_test, 18, UIH);
-					} else {
-						syslog(LOG_INFO, "Logical channel %d opened.\n",
-								frame->channel);
-					}
-				}
-				break;
-			case DM:
-				if (cstatus[frame->channel].opened) {
-					syslog(LOG_INFO,
-							"DM received, so the channel %d was already closed.\n",
-							frame->channel);
-					cstatus[frame->channel].opened = 0;
-				} else {
-					if (frame->channel == 0) {
-						syslog(LOG_INFO,
-								"Couldn't open control channel.\n->Terminating.\n");
-						terminate = 1;
-						terminateCount = -1;    // don't need to close channels
-					} else {
-						syslog(LOG_INFO,
-								"Logical channel %d couldn't be opened.\n",
-								frame->channel);
-					}
-				}
-				break;
-			case DISC:
-				if (cstatus[frame->channel].opened) {
-					cstatus[frame->channel].opened = 0;
-					write_frame(frame->channel, NULL, 0, UA | PF);
-					if (frame->channel == 0) {
-						syslog(LOG_INFO, "Control channel closed.\n");
-						if (faultTolerant) {
-							restart = 1;
-						} else {
-							terminate = 1;
-							terminateCount = -1; // don't need to close channels
-						}
-					} else {
-						syslog(LOG_INFO, "Logical channel %d closed.\n",
-								frame->channel);
-					}
-				} else {
-					// channel already closed
-					syslog(LOG_INFO,
-							"Received DISC even though channel %d was already closed.\n",
-							frame->channel);
-					write_frame(frame->channel, NULL, 0, DM | PF);
-				}
-				break;
-			case SABM:
-				// channel open request
-				if (cstatus[frame->channel].opened == 0) {
-					if (frame->channel == 0) {
-						syslog(LOG_INFO, "Control channel opened.\n");
-					} else {
-						syslog(LOG_INFO, "Logical channel %d opened.\n",
-								frame->channel);
-					}
-				} else {
-					// channel already opened
-					syslog(LOG_INFO,
-							"Received SABM even though channel %d was already closed.\n",
-							frame->channel);
-				}
-				cstatus[frame->channel].opened = 1;
-				write_frame(frame->channel, NULL, 0, UA | PF);
-				break;
-			}
-		}
-
-		destroy_frame(frame);
-	}
-	if (_debug)
-		syslog(LOG_DEBUG, "out of %s\n", __FUNCTION__);
-	return framesExtracted;
 }
 
 /** Wait for child process to kill the parent.
@@ -1087,6 +702,8 @@ int initGeneric() {
 	return 0;
 }
 
+
+
 int openDevicesAndMuxMode() {
 	int i;
 	int ret = -1;
@@ -1166,6 +783,7 @@ void closeDevices() {
 		}
 	}
 }
+
 
 /**
  * The main program
