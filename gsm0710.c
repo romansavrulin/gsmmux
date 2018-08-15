@@ -377,7 +377,7 @@ int extract_frames(GSM0710_Buffer * buf) {
 						"is (FRAME_IS(UI, frame) || FRAME_IS(UIH, frame))\n");
 			if (frame->channel > 0) {
 				if (_debug)
-					syslog(LOG_DEBUG, "frame->channel > 0\n");
+					syslog(LOG_DEBUG, "Sending data to DLC channel %d\n", frame->channel);
 				// data from logical channel
 				ussp_send_data(frame->data, frame->data_length,
 						frame->channel - 1);
@@ -480,6 +480,6 @@ int extract_frames(GSM0710_Buffer * buf) {
 		destroy_frame(frame);
 	}
 	if (_debug)
-		syslog(LOG_DEBUG, "out of %s\n", __FUNCTION__);
+		syslog(LOG_DEBUG, "out of %s; framesExtracted: %d\n", __FUNCTION__, framesExtracted);
 	return framesExtracted;
 }

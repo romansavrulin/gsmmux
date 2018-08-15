@@ -183,7 +183,7 @@ int ussp_recv_data(unsigned char *buf, int len, int port) {
 
 int ussp_send_data(unsigned char *buf, int n, int port) {
 	if (_debug)
-		syslog(LOG_DEBUG, "send data to port virtual port %d\n", port);
+		syslog(LOG_DEBUG, "send data to port virtual port %s\n", ussp_fd[port].name);
 	write(ussp_fd[port].fd, buf, n);
 	return n;
 }
