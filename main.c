@@ -109,7 +109,13 @@
 volatile int terminate = 0;
 int terminateCount = 0;
 static char* devSymlinkPrefix = 0;
-static int *ussp_fd;
+
+typedef struct {
+	int fd;
+	char * name;
+}ussp_fd_t;
+
+static ussp_fd_t *ussp_fd;
 int serial_fd;
 Channel_Status *cstatus;
 int max_frame_size = 31; // The limit of Sony-Ericsson GM47
@@ -178,7 +184,7 @@ int ussp_recv_data(unsigned char *buf, int len, int port) {
 int ussp_send_data(unsigned char *buf, int n, int port) {
 	if (_debug)
 		syslog(LOG_DEBUG, "send data to port virtual port %d\n", port);
-	write(ussp_fd[port], buf, n);
+	write(ussp_fd[port].fd, buf, n);
 	return n;
 }
 
@@ -712,12 +718,12 @@ int openDevicesAndMuxMode() {
 	maxfd = 0;
 	for (i = 0; i < numOfPorts; i++) {
 		remaining[i] = 0;
-		if ((ussp_fd[i] = open_pty(ptydev[i], i)) < 0) {
+		if ((ussp_fd[i].fd = open_pty(ptydev[i], i)) < 0) {
 			syslog(LOG_ERR, "Can't open %s. %s (%d).\n", ptydev[i],
 					strerror(errno), errno);
 			return -1;
-		} else if (ussp_fd[i] > maxfd)
-			maxfd = ussp_fd[i];
+		} else if (ussp_fd[i].fd > maxfd)
+			maxfd = ussp_fd[i].fd;
 		cstatus[i].opened = 0;
 		cstatus[i].v24_signals = S_DV | S_RTR | S_RTC | EA;
 	}
@@ -763,8 +769,10 @@ int openDevicesAndMuxMode() {
 	for (i = 1; i <= numOfPorts; i++) {
 		sleep(1);
 		write_frame(i, NULL, 0, SABM | PF);
+		char *name = ptsname(ussp_fd[i - 1].fd);
+		ussp_fd[i-1].name = name;
 		syslog(LOG_INFO, "Connecting %s to virtual channel %d on %s\n",
-				ptsname(ussp_fd[i - 1]), i, serportdev);
+				name, i, serportdev);
 	}
 	return ret;
 }
@@ -775,7 +783,7 @@ void closeDevices() {
 
 	for (i = 0; i < numOfPorts; i++) {
 		char *symlinkName = createSymlinkName(i);
-		close(ussp_fd[i]);
+		close(ussp_fd[i].fd);
 		if (symlinkName) {
 			// Remove the symbolic link to the slave device
 			unlink(symlinkName);
@@ -899,7 +907,7 @@ int main(int argc, char *argv[], char *env[]) {
 
 	syslog(LOG_INFO, "Malloc buffers...\n");
 	// allocate memory for data structures
-	if (!(ussp_fd = malloc(sizeof(int) * numOfPorts)) || !(in_buf =
+	if (!(ussp_fd = malloc(sizeof(*ussp_fd) * numOfPorts)) || !(in_buf =
 			gsm0710_buffer_init())
 			|| !(remaining = malloc(sizeof(int) * numOfPorts)) || !(tmp =
 					malloc(sizeof(char *) * numOfPorts))
@@ -930,7 +938,7 @@ int main(int argc, char *argv[], char *env[]) {
 		FD_ZERO(&rfds);
 		FD_SET(serial_fd, &rfds);
 		for (i = 0; i < numOfPorts; i++)
-			FD_SET(ussp_fd[i], &rfds);
+			FD_SET(ussp_fd[i].fd, &rfds);
 
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
@@ -960,32 +968,32 @@ int main(int argc, char *argv[], char *env[]) {
 
 			// check virtual ports
 			for (i = 0; i < numOfPorts; i++)
-				if (FD_ISSET(ussp_fd[i], &rfds)) {
+				if (FD_ISSET(ussp_fd[i].fd, &rfds)) {
 
 					// information from virtual port
 					if (remaining[i] > 0) {
 						memcpy(buf, tmp[i], remaining[i]);
 						free(tmp[i]);
 					}
-					if ((len = read(ussp_fd[i], buf + remaining[i],
+					if ((len = read(ussp_fd[i].fd, buf + remaining[i],
 							sizeof(buf) - remaining[i])) > 0)
 						remaining[i] = ussp_recv_data(buf, len + remaining[i],
 								i);
 					if (_debug)
-						syslog(LOG_DEBUG, "Data from ptya%d: %d bytes\n", i,
+						syslog(LOG_DEBUG, "Data from %s: %d bytes\n", ussp_fd[i].name,
 								len);
 					if (len < 0) {
 						// Re-open pty, so that in
 						remaining[i] = 0;
-						close(ussp_fd[i]);
-						if ((ussp_fd[i] = open_pty(ptydev[i], i)) < 0) {
+						close(ussp_fd[i].fd);
+						if ((ussp_fd[i].fd = open_pty(ptydev[i], i)) < 0) {
 							if (_debug)
 								syslog(LOG_DEBUG,
 										"Can't re-open %s. %s (%d).\n",
 										ptydev[i], strerror(errno), errno);
 							terminate = 1;
-						} else if (ussp_fd[i] > maxfd)
-							maxfd = ussp_fd[i];
+						} else if (ussp_fd[i].fd > maxfd)
+							maxfd = ussp_fd[i].fd;
 					}
 
 					/* copy remaining bytes from last packet into tmp */
