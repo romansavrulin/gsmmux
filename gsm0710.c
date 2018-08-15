@@ -621,13 +621,13 @@ void handle_command(GSM0710_Frame * frame) {
 				}
 				break;
 			case C_TEST:
-#ifdef DEBUG
-				if(_debug)
-				syslog(LOG_DEBUG,"Test command: ");
-				if(_debug)
-				syslog(LOG_DEBUG,"frame->data = %s  / frame->data_length = %d\n",frame->data + i, frame->data_length - i);
-				//fwrite(frame->data + i, sizeof(char), frame->data_length - i, stdout);
-#endif
+
+				if(_debug){
+					syslog(LOG_DEBUG,"Test command: ");
+					syslog(LOG_DEBUG,"frame->data = %s  / frame->data_length = %d\n",frame->data + i, frame->data_length - i);
+					//fwrite(frame->data + i, sizeof(char), frame->data_length - i, stdout);
+				}
+
 				break;
 			case C_MSC:
 				if (i + 1 < frame->data_length) {
@@ -770,11 +770,10 @@ int extract_frames(GSM0710_Buffer * buf) {
 			}
 		} else {
 			// not an information frame
-			if (_debug)
+			if (_debug){
 				syslog(LOG_DEBUG, "not an information frame\n");
-#ifdef DEBUG
-			print_frame(frame);
-#endif
+				print_frame(frame);
+			}
 			switch ((frame->control & ~PF)) {
 			case UA:
 				if (_debug)
@@ -933,6 +932,7 @@ void signal_treatment(int param) {
 	case SIGUSR1:
 		terminate = 1;
 		//sig_term(param);
+		break;
 	case SIGTERM:
 		terminate = 1;
 		break;
