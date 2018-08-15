@@ -140,50 +140,6 @@ static int baudrates[] =
 static speed_t baud_bits[] = { 0, B9600, B19200, B38400, B57600, B115200,
 		B230400, B460800 };
 
-#if 0
-/* Opens USSP port for use.
- *
- * PARAMS:
- * port - port number
- * RETURNS
- * file descriptor or -1 on error
- */
-int ussp_open(int port)
-{
-	int fd;
-	char name[] = "ser0\0";
-
-	name[3] = (char) (0x30 + port);
-	PDEBUG("Open serial port %s ", name);
-	fd = open(name, O_RDWR | O_NONBLOCK);
-	PDEBUG("done.\n");
-
-	return fd;
-}
-#endif
-
-/**
- * Returns success, when an ussp is opened.
- */
-int ussp_connected(int port) {
-#if 0
-	struct ussp_operation op;
-
-	op.op = USSP_OPEN_RESULT;
-	if (cstatus[port + 1].opened)
-	op.arg = 0;
-	else
-	op.arg = -1;
-	op.len = 0;
-	write(ussp_fd[port], &op, sizeof(op));
-
-	PDEBUG("USSP port %d opened.\n", port);
-	return 0;
-#else
-	return 0;
-#endif
-}
-
 /** Writes a frame to a logical channel. C/R bit is set to 1.
  * Doesn't support FCS counting for UI frames.
  *
@@ -268,117 +224,7 @@ int write_frame(int channel, const char *input, int count, unsigned char type) {
  * the number of remaining bytes in partial packet
  */
 int ussp_recv_data(unsigned char *buf, int len, int port) {
-#if 0
-	int n, written;
-	unsigned char pkt_buf[4096];
-	struct ussp_operation *op = (struct ussp_operation *) pkt_buf, *top;
-	struct termios *tiosp;
-	int i;                      // size
-	unsigned char msc[5] = {CR | C_MSC, 0x5, 0, 0, 1};
 
-	PDEBUG( "(DEBUG) %s chamada\n", __FUNCTION__);
-
-	memcpy(pkt_buf, buf, len);
-	n = len;
-	op = (struct ussp_operation *) pkt_buf;
-
-	for (top = op;
-			/* check for partial packet - first, make sure top->len is actually in pkt_buf */
-			((char *) top + sizeof(struct ussp_operation) <= ((char *) op) + n)
-			&& ((char *) top + sizeof(struct ussp_operation) + top->len <= ((char *) op) + n);
-			top = (struct ussp_operation *) (((char *) top) + top->len + sizeof(struct ussp_operation)))
-	{
-
-		switch (top->op)
-		{
-			case USSP_OPEN:
-			ussp_connected(port);
-			break;
-			case USSP_CLOSE:
-			PDEBUG("Close ussp port %d\n", port);
-			break;
-			case USSP_WRITE:
-			written = 0;
-			i = 0;
-			// try to write 5 times
-			while ((written += write_frame(port + 1, top->data + written,
-									top->len - written, UIH)) != top->len && i < WRITE_RETRIES)
-			{
-				i++;
-			}
-			if (i == WRITE_RETRIES)
-			{
-				PDEBUG("Couldn't write data to channel %d. Wrote only %d bytes, when should have written %ld.\n",
-						(port + 1), written, top->len);
-			}
-			break;
-			case USSP_SET_TERMIOS:
-			tiosp = (struct termios *) (top + 1);
-			if ((tiosp->c_cflag & CBAUD) == B0 && (cstatus[(port + 1)].v24_signals & S_RTC) > 0)
-			{
-				// drop DTR
-				PDEBUG("Drop DTR.\n");
-				msc[2] = 3 | ((63 & (port + 1)) << 2);
-				msc[3] = cstatus[(port + 1)].v24_signals & ~S_RTC;
-				cstatus[(port + 1)].v24_signals = msc[3];
-				write_frame(0, msc, 4, UIH);
-			}
-			else if ((tiosp->c_cflag & CBAUD) != B0 && (cstatus[(port + 1)].v24_signals & S_RTC) == 0)
-			{
-				// DTR up
-				PDEBUG("DTR up.\n");
-				msc[2] |= ((63 & (port + 1)) << 2);
-				msc[3] = cstatus[(port + 1)].v24_signals | S_RTC;
-				cstatus[(port + 1)].v24_signals = msc[3];
-				write_frame(0, msc, 4, UIH);
-			}
-#ifdef DEBUG
-			PDEBUG("Set termios for ussp port %d\n", port);
-			PDEBUG("\tinput mode flags:   0x%04x\n", tiosp->c_iflag);
-			PDEBUG("\toutput mode flags:  0x%04x\n", tiosp->c_oflag);
-			PDEBUG("\tcontrol mode flags: 0x%04x\n", tiosp->c_cflag);
-			PDEBUG("\tlocal mode flags:   0x%04x\n", tiosp->c_lflag);
-			PDEBUG("\tline discipline:    0x%02x\n", tiosp->c_line);
-			PDEBUG("\tcontrol characters: ");
-			for (i = 0; i < NCCS; i++)
-			PDEBUG("0x%02x ", tiosp->c_cc[i]);
-			PDEBUG("\n");
-			PDEBUG("\tinput speed:        0x%02x (%i)\n", tiosp->c_ispeed, tiosp->c_ispeed);
-			PDEBUG("\toutput speed:       0x%02x (%i)\n", tiosp->c_ospeed, tiosp->c_ospeed);
-#endif
-			break;
-			case USSP_MSC:
-			PDEBUG("Modem signal change\n");
-			msc[2] = 3 | ((63 & (port + 1)) << 2);
-			msc[3] = S_DV;
-			if ((top->arg & USSP_DTR) == USSP_DTR)
-			{
-				msc[3] |= S_RTC;
-				PDEBUG("RTC\n");
-			}
-			if ((top->arg & USSP_RTS) == USSP_RTS)
-			{
-				msc[3] |= S_RTR;
-				PDEBUG("RTR\n");
-			}
-			else
-			{
-				msc[3] |= S_FC;
-				PDEBUG("FC\n");
-			}
-			cstatus[(port + 1)].v24_signals = msc[3];       // save the signals
-			write_frame(0, msc, 4, UIH);
-			break;
-			default:
-			PDEBUG("Unknown code: %d\n", top->op);
-			break;
-		}
-
-	}
-
-	/* remaining bytes in partial packet */
-	return ((char *) op + n) - (char *) top;
-#else
 	int written = 0;
 	int i = 0;
 	int last = 0;
@@ -397,28 +243,12 @@ int ussp_recv_data(unsigned char *buf, int len, int port) {
 					(port + 1), written, (long) len);
 	}
 	return 0;
-#endif
 }
 
 int ussp_send_data(unsigned char *buf, int n, int port) {
-#if 0
-	struct ussp_operation *op;
-
-	op = malloc(sizeof(struct ussp_operation) + n);
-
-	op->op = USSP_READ;
-	op->arg = 0;
-	op->len = n;
-	memcpy(op->data, buf, n);
-
-	write(ussp_fd[port], op, sizeof(struct ussp_operation) + n);
-
-	free(op);
-#else
 	if (_debug)
 		syslog(LOG_DEBUG, "send data to port virtual port %d\n", port);
 	write(ussp_fd[port], buf, n);
-#endif
 	return n;
 }
 
