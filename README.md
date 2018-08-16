@@ -1,10 +1,10 @@
-GSM 07.10 Driver Implementation with pseudo-tty's
+# GSM 07.10 Driver Implementation with pseudo-tty's
 
 Copyright (C) 2003 Tuukka Karvonen <tkarvone@iki.fi>
 Modified 2004/2005 by David Jander <david@protonic.nl>
 Development continued in Berlios GSM Multiplexer Daemon project
 
-Introduction
+## Introduction
 
   This driver is based on the work of Tuukka Karvonen, (see
   README.orig) and has been modified to work with pseudo-tty's
@@ -12,16 +12,17 @@ Introduction
   more information about the GSM07.10 implementation. The driver is
   known to work with the following modems:
 
-  - Sony-Ericsson GM29 
-  - Siemens MC35
-  - Siemens MC35i
-  - Siemens MC75
-  - iRZ MC52iT
-  - Sony-Ericsson GM47/GM48 (not tested with the most recent version of 
+* Sony-Ericsson GM29 
+* Siemens MC35
+* Siemens MC35i
+* Siemens MC75
+* iRZ MC52iT
+* Sony-Ericsson GM47/GM48 (not tested with the most recent version of 
                              the driver)
 
-Instructions for Use
+## Instructions for Use
 
+```
   ./gsmMuxd [options] <pty1> <pty2> ...
     <ptyN>              : pty devices (e.g. /dev/ptya0, or /dev/ptmx)
 
@@ -36,6 +37,7 @@ Instructions for Use
                           (e.g./dev/mux)
     -w                  : Wait for deamon startup success/failure
     -h                  : Show this help message
+```
 
   This daemon divides one serial port into two or more "virtual" serial
   ports (pseudo TTYs) assuming the modem supports the GSM 07.10
@@ -54,13 +56,14 @@ Instructions for Use
   with static names to the dynamically changing virtual serial port
   pseudo TTY slave devices.
 
-INSTALLATION
+## INSTALLATION
 
   To make the daemon start at system boot:
-  1. Copy gsmMuxd to /usr/sbin/
-  2. Copy the file "mux.d" to /etc/init.d/. 
-  3. Edit the OPTIONS line of the copied file
-  3. Run chkconfig --add mux.d
+  
+1. Copy `gsmMuxd` to `/usr/sbin/`
+2. Copy the file `mux.d` to `/etc/init.d/`. 
+3. Edit the OPTIONS line of the copied file
+3. Run `chkconfig --add mux.d`
 
   If you have more than one modem you will need to 
   create a copy of the daemon executable with a different 
@@ -68,3 +71,11 @@ INSTALLATION
 
   Note that installation varies on different systems. The steps above
   should work at least on Red Hat linux distributions.
+  
+## Routing virtual com ports to physical
+
+To do so use `socat` program
+
+```
+socat -d -d file:/dev/ttyUSB1,b115200,raw,echo=0,iexten=0 file:./mux1,raw,echo=0,iexten=0
+```
