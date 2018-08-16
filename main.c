@@ -709,13 +709,11 @@ int initGeneric() {
 
 
 
-int openDevicesAndMuxMode() {
-	int i;
-	int ret = -1;
+int openDevices() {
 	syslog(LOG_INFO, "Open devices...\n");
 	// open ussp devices
 	maxfd = 0;
-	for (i = 0; i < numOfPorts; i++) {
+	for (int i = 0; i < numOfPorts; i++) {
 		remaining[i] = 0;
 		if ((ussp_fd[i].fd = open_pty(ptydev[i], i)) < 0) {
 			syslog(LOG_ERR, "Can't open %s. %s (%d).\n", ptydev[i],
@@ -726,7 +724,7 @@ int openDevicesAndMuxMode() {
 		cstatus[i].opened = 0;
 		cstatus[i].v24_signals = S_DV | S_RTR | S_RTC | EA;
 	}
-	cstatus[i].opened = 0;
+
 	syslog(LOG_INFO, "Open serial port...\n");
 
 	// open the serial port
@@ -738,6 +736,11 @@ int openDevicesAndMuxMode() {
 		maxfd = serial_fd;
 	syslog(LOG_INFO, "Opened serial port. Switching to mux-mode.\n");
 
+	return 0;
+}
+
+int openMux() {
+	int ret = -1;
 	switch (_modem_type) {
 	case MC35:
 		//we coould have other models like XP48 TC45/35
@@ -765,7 +768,7 @@ int openDevicesAndMuxMode() {
 	syslog(LOG_INFO, "Opening control channel.\n");
 	write_frame(0, NULL, 0, SABM | PF);
 	syslog(LOG_INFO, "Opening logical channels.\n");
-	for (i = 1; i <= numOfPorts; i++) {
+	for (int i = 1; i <= numOfPorts; i++) {
 		sleep(1);
 		write_frame(i, NULL, 0, SABM | PF);
 		char *name = ptsname(ussp_fd[i - 1].fd);
@@ -916,7 +919,11 @@ int main(int argc, char *argv[], char *env[]) {
 	}
 
 	// Initialize modem and virtual ports
-	if (openDevicesAndMuxMode() != 0) {
+	if (openDevices() != 0) {
+		return -1;
+	}
+
+	if (openMux() != 0) {
 		return -1;
 	}
 
@@ -1032,16 +1039,14 @@ int main(int argc, char *argv[], char *env[]) {
 					syslog(LOG_INFO, "Trying to restart the mux.\n");
 				}
 				do {
-					closeDevices();
 					terminateCount = -1;
 					sleep(1);
-					if (openDevicesAndMuxMode() == 0) {
+					if (openMux() == 0) {
 						// The modem is up again
 						time(&frameReceiveTime);
 						pingNumber = 1;
 						break;
 					}
-					sleep(POLLING_INTERVAL);
 				} while (!terminate);
 
 			} else if (frameReceiveTime + POLLING_INTERVAL * pingNumber
