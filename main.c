@@ -228,12 +228,11 @@ int at_command(int fd, char *cmd, int to) {
 	unsigned char buf[1024];
 	int sel, len, i;
 	int returnCode = 0;
-	int wrote = 0;
 
 	if (_debug)
 		syslog(LOG_DEBUG, "is in %s\n", __FUNCTION__);
 
-	wrote = write(fd, cmd, strlen(cmd));
+	write(fd, cmd, strlen(cmd));
 
 	if (_debug)
 		syslog(LOG_DEBUG, "Wrote  %s \n", cmd);
@@ -952,17 +951,18 @@ int main(int argc, char *argv[], char *env[]) {
 
 			if (FD_ISSET(serial_fd, &rfds)) {
 				// input from serial port
-				if (_debug)
-					syslog(LOG_DEBUG, "Serial Data\n");
 				if ((size = gsm0710_buffer_free(in_buf)) > 0
-						&& (len = read(serial_fd, buf, min(size, sizeof(buf))))
-								> 0) {
+						&& (len = read(serial_fd, buf, min(size, sizeof(buf)))) > 0) {
+					if (_debug)
+						syslog(LOG_DEBUG, "Got data from serial: %d bytes; buffer free: %d\n", len, size);
 					gsm0710_buffer_write(in_buf, buf, len);
 					// extract and handle ready frames
 					if (extract_frames(in_buf) > 0 && faultTolerant) {
 						frameReceiveTime = currentTime;
 						pingNumber = 1;
 					}
+				} else if (size == 0){
+					syslog(LOG_WARNING, "No space in GSM buffer");
 				}
 			}
 
