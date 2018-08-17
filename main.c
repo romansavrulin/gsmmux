@@ -924,7 +924,10 @@ int main(int argc, char *argv[], char *env[]) {
 	}
 
 	if (openMux() != 0) {
-		return -1;
+		if(!faultTolerant)
+			return -1;
+		syslog(LOG_WARNING,
+				"Unable to open mux. Will try later\n");
 	}
 
 	if (_debug) {
