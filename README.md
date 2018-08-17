@@ -1,7 +1,9 @@
 # GSM 07.10 Driver Implementation with pseudo-tty's
 
 Copyright (C) 2003 Tuukka Karvonen <tkarvone@iki.fi>
+
 Modified 2004/2005 by David Jander <david@protonic.nl>
+
 Development continued in Berlios GSM Multiplexer Daemon project
 
 ## Introduction
