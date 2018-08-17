@@ -22,6 +22,12 @@ Development continued in Berlios GSM Multiplexer Daemon project
 
 ## Instructions for Use
 
+Example call command for debug, fault-tolerant, generic modem using 115200 on `ttyUSB0`
+
+```
+./gsmMuxd -f 120 -r -p /dev/ttyUSB0 -d -m generic -b 115200 -s ./mux /dev/ptmx /dev/ptmx
+```
+
 ```
   ./gsmMuxd [options] <pty1> <pty2> ...
     <ptyN>              : pty devices (e.g. /dev/ptya0, or /dev/ptmx)
@@ -36,6 +42,7 @@ Development continued in Berlios GSM Multiplexer Daemon project
     -s <symlink-prefix> : Prefix for the symlinks of slave devices 
                           (e.g./dev/mux)
     -w                  : Wait for deamon startup success/failure
+    -r                  : Restart automatically if the modem stops responding
     -h                  : Show this help message
 ```
 
