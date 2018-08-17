@@ -103,8 +103,8 @@
 #define IRZ52IT		3
 // Defines how often the modem is polled when automatic restarting is enabled
 // The value is in seconds
-#define POLLING_INTERVAL 5
-#define MAX_PINGS 4
+#define POLLING_INTERVAL 1
+#define MAX_PINGS 2
 
 volatile int terminate = 0;
 int terminateCount = 0;
