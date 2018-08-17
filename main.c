@@ -159,7 +159,7 @@ static speed_t baud_bits[] = { 0, B9600, B19200, B38400, B57600, B115200,
  * RETURNS:
  * the number of remaining bytes in partial packet
  */
-int ussp_recv_data(unsigned char *buf, int len, int port) {
+int ussp_recv_data(char *buf, int len, int port) {
 
 	int written = 0;
 	int i = 0;
@@ -181,7 +181,7 @@ int ussp_recv_data(unsigned char *buf, int len, int port) {
 	return 0;
 }
 
-int ussp_send_data(unsigned char *buf, int n, int port) {
+int ussp_send_data(char *buf, int n, int port) {
 	if (_debug)
 		syslog(LOG_DEBUG, "send data to port virtual port %s\n", ussp_fd[port].name);
 	write(ussp_fd[port].fd, buf, n);
@@ -225,7 +225,7 @@ int findInBuf(char* buf, int len, char* needle) {
 int at_command(int fd, char *cmd, int to) {
 	fd_set rfds;
 	struct timeval timeout;
-	unsigned char buf[1024];
+	char buf[1024];
 	int sel, len, i;
 	int returnCode = 0;
 
@@ -570,7 +570,7 @@ void signal_treatment(int param) {
 int initSiemensMC35() {
 	char mux_command[] = "AT+CMUX=0\r\n";
 	char speed_command[20] = "AT+IPR=57600\r\n";
-	unsigned char close_mux[2] = { C_CLD | CR, 1 };
+	char close_mux[2] = { C_CLD | CR, 1 };
 
 	int baud = indexOfBaud(baudrate);
 	//Modem Init for Siemens MC35i
@@ -624,7 +624,7 @@ int initSiemensMC35() {
 int initIRZ52IT() {
 	char mux_command[20] = "AT+CMUX=0\r\n";
 	char baud_command[] = "AT+IPR=115200\r\n";
-	unsigned char close_mux[2] = { C_CLD | CR, 1 };
+	char close_mux[2] = { C_CLD | CR, 1 };
 
 	int baud = indexOfBaud(baudrate);
 	if (baud != 0) {
@@ -668,7 +668,7 @@ int initIRZ52IT() {
  */
 int initGeneric() {
 	char mux_command[20] = "AT+CMUX=0\r\n";
-	unsigned char close_mux[2] = { C_CLD | CR, 1 };
+	char close_mux[2] = { C_CLD | CR, 1 };
 
 	int baud = indexOfBaud(baudrate);
 	if (baud != 0) {
@@ -805,11 +805,11 @@ int main(int argc, char *argv[], char *env[]) {
 	int sel, len;
 	fd_set rfds;
 	struct timeval timeout;
-	unsigned char buf[4096], **tmp;
+	char buf[4096], **tmp;
 	char *programName;
 	int i, size, t;
 
-	unsigned char close_mux[2] = { C_CLD | CR, 1 };
+	char close_mux[2] = { C_CLD | CR, 1 };
 	int opt;
 	pid_t parent_pid;
 	// for fault tolerance

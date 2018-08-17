@@ -226,7 +226,7 @@ void handle_command(GSM0710_Frame * frame) {
 #if 1
 	unsigned char type, signals;
 	int length = 0, i, type_length, channel, supported = 1;
-	unsigned char *response;
+	char *response;
 	// struct ussp_operation op;
 
 	if (_debug)

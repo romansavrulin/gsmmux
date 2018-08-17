@@ -108,7 +108,7 @@ int gsm0710_buffer_write(GSM0710_Buffer *buf, const char *input, int count) {
 GSM0710_Frame *gsm0710_buffer_get_frame(GSM0710_Buffer *buf) {
 	int end;
 	int length_needed = 5; // channel, type, length, fcs, flag
-	unsigned char *data;
+	char *data;
 	unsigned char fcs = 0xFF;
 
 	GSM0710_Frame *frame = NULL;

@@ -78,7 +78,7 @@ typedef struct Channel_Status {
 
 int write_frame(int channel, const char *input, int count, unsigned char type);
 int extract_frames(GSM0710_Buffer * buf);
-int ussp_send_data(unsigned char *buf, int n, int port);
+int ussp_send_data(char *buf, int n, int port);
 
 #endif /* _GSM0710_H_ */
 
