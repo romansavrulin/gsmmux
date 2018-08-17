@@ -7,7 +7,7 @@ OBJS = main.o gsm0710.o buffer.o
 
 CC = gcc
 LD = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -funsigned-char
 LDLIBS = -lm
 
 ifeq ($(DEBUG),y)
